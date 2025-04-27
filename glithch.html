@@ -266,6 +266,14 @@
         </div>
         <div class="modal-body text-center">
           <div id="qr-reader" style="width: 100%; max-width: 400px; margin: auto;"></div>
+          
+          <!-- ใน Modal ให้เพิ่ม dropdown ตรงนี้ไว้ด้วย -->
+<div class="form-group mt-3">
+  <label for="cameraSelect" class="form-label">เลือกกล้อง</label>
+  <select id="cameraSelect" class="form-control"></select>
+</div>
+
+          
 
           <hr class="my-4">
 
@@ -283,24 +291,24 @@
 
 
   <script>
-const serverUrl = "https://script.google.com/macros/s/xxxx/exec";
-const liffID = "LIFFID";
+   const serverUrl = "https://script.google.com/macros/s/xxx/exec";
+const liffID = "xxx";
 const jsonUrl = "https://opensheet.elk.sh/SHEETID/SHEETNAME";
 
-$(document).ready(function () {
+let html5QrCode;
+let currentCameraId = null;
 
-  
+$(document).ready(function () {
   $('#regSection').hide();
 
   liff.init({ liffId: liffID }).then(() => {
     if (liff.isLoggedIn()) {
+      $.LoadingOverlay("show", {
+        image: "",
+        fontawesome: "fa fa-spinner fa-spin",
+        text: "กำลังโหลดข้อมูล..."
+      });
 
-$.LoadingOverlay("show", {
-image: "",
-fontawesome: "fa fa-spinner fa-spin",
-text: "กำลังโหลดข้อมูล..."
-})
-      
       liff.getProfile().then(profile => {
         const uid = profile.userId;
         $('#uid').val(uid);
@@ -320,43 +328,7 @@ text: "กำลังโหลดข้อมูล..."
               let score = parseInt(userData.Score || "0");
               $('#points').text(score);
 
-              const percent = score / 100;
-              const totalLength = 100;
-              const offset = totalLength * (1 - percent);
-              document.getElementById("progressCurve").style.strokeDashoffset = offset;
-
-let tierText = "ระดับ Silver";
-let bgClass = "bg-silver";
-let nextTierScore = 100;
-
-if (score >= 800) {
-  tierText = "ระดับ Supreme";
-  bgClass = "bg-supreme";
-  nextTierScore = 1000;
-} else if (score >= 350) {
-  tierText = "ระดับ Diamond";
-  bgClass = "bg-diamond";
-  nextTierScore = 800;
-} else if (score >= 100) {
-  tierText = "ระดับ Gold";
-  bgClass = "bg-gold";
-  nextTierScore = 350;
-}
-
-// ใช้ tierText แสดงตำแหน่ง
-$('.d-flex').removeClass("bg-silver bg-gold bg-diamond bg-dark").addClass(bgClass);
-$('.text-center.mt-2.mb-4.fw-bold').text(tierText);
-
-// คำนวณข้อความเลื่อนระดับ
-let remaining = nextTierScore - score;
-if (tierText === "ระดับ Supreme") {
-  $('p:contains("สะสมอีก")').html(`คุณอยู่ในระดับสูงสุดแล้ว 🎉`);
-} else {
-  let nextTierName = tierText === "ระดับ Diamond" ? "Supreme" : "Diamond";
-  $('p:contains("สะสมอีก")').html(`สะสมอีก <strong>${remaining}</strong> พ้อยท์ ภายใน <strong>31/12/68</strong><br>เพื่อเลื่อนสถานะเป็น <strong>${nextTierName}</strong> ในปี 2568`);
-}
-
-
+              updateProgressBar(score);
             } else {
               $('#regSection').show();
               $('#displaySection').hide();
@@ -403,7 +375,7 @@ if (tierText === "ระดับ Supreme") {
         $('#regSection').hide();
         $('#displaySection').show();
 
-        document.getElementById("progressCurve").style.strokeDashoffset = 126; // 0%
+        document.getElementById("progressCurve").style.strokeDashoffset = 126;
       } else {
         Swal.fire({
           icon: 'error',
@@ -422,37 +394,8 @@ if (tierText === "ระดับ Supreme") {
   });
 });
 
-function submitData() {
-$.LoadingOverlay("show", {
-image: "",
-fontawesome: "fa fa-spinner fa-spin",
-text: "กำลังบันทึกข้อมูล..."
-})
+// ===== ฟังก์ชันอื่นๆ =====
 
-  const data = {
-    name: $('#username').text(),
-    phone: $('#phone').text().replace("📞", "").trim(),
-    points: $('#points').text(),
-    tier: "Silver"
-  };
-
-  fetch(serverUrl, {
-    method: "POST",
-    body: new URLSearchParams(data)
-  })
-    .then(res => res.json())
-    .then(result => {
-      $.LoadingOverlay("hide");
-      Swal.fire("ส่งข้อมูลแล้ว", "ระบบบันทึกพ้อยท์เรียบร้อย", "success");
-    })
-    .catch(error => {
-      $.LoadingOverlay("hide");
-      Swal.fire("ผิดพลาด", "ไม่สามารถส่งข้อมูลได้", "error");
-    });
-}
-
-
-  
 function submitSecretCode() {
   const code = $('#secretCode').val().trim();
   if (!code) {
@@ -477,14 +420,13 @@ function submitSecretCode() {
     } else if (data.status === "used") {
       Swal.fire("รหัสถูกใช้แล้ว", "รหัสนี้ถูกใช้ไปแล้ว กรุณาลองใหม่", "warning");
     } else {
-      Swal.fire("รหัสไม่ถูกต้อง", "กรุณาตรวจสอบรหัสที่กรอกอักครั้ง", "error");
+      Swal.fire("รหัสไม่ถูกต้อง", "กรุณาตรวจสอบรหัสที่กรอกอีกครั้ง", "error");
     }
   }).catch(err => {
     $.LoadingOverlay("hide");
     Swal.fire("ผิดพลาด", "เกิดข้อผิดพลาดในการส่งข้อมูล", "error");
   });
 }
-
 
 function onScanSuccess(decodedText, decodedResult) {
   $('#scoreModal').modal('hide');
@@ -517,63 +459,71 @@ function onScanSuccess(decodedText, decodedResult) {
   });
 }
 
+// ============ กล้อง ============
 
-let html5QrcodeScanner;
 $('#scoreModal').on('shown.bs.modal', function () {
-  if (!html5QrcodeScanner) {
-    html5QrcodeScanner = new Html5QrcodeScanner("qr-reader", {
+  if (!html5QrCode) {
+    html5QrCode = new Html5Qrcode("qr-reader");
+  }
+
+  Html5Qrcode.getCameras().then(cameras => {
+    if (cameras && cameras.length) {
+      $('#cameraSelect').empty();
+      cameras.forEach(camera => {
+        $('#cameraSelect').append(new Option(camera.label || `Camera ${camera.id}`, camera.id));
+      });
+      currentCameraId = cameras[0].id;
+      startScanner(currentCameraId);
+    }
+  }).catch(err => {
+    console.error("Camera fetch error:", err);
+    Swal.fire("ผิดพลาด", "ไม่พบกล้อง", "error");
+  });
+});
+
+$('#cameraSelect').on('change', function () {
+  const selectedCameraId = $(this).val();
+  if (selectedCameraId !== currentCameraId) {
+    stopScanner().then(() => {
+      startScanner(selectedCameraId);
+      currentCameraId = selectedCameraId;
+    });
+  }
+});
+
+function startScanner(cameraId) {
+  html5QrCode.start(
+    { deviceId: { exact: cameraId } },
+    {
       fps: 10,
       qrbox: 250
-    });
-  }
-  html5QrcodeScanner.render(onScanSuccess);
-});
-  
-//   $('#scoreModal').on('shown.bs.modal', function () {
-//   const html5QrCode = new Html5Qrcode("qr-reader");
-//   Html5Qrcode.getCameras().then(cameras => {
-//     const backCamera = cameras.find(camera => camera.label.toLowerCase().includes("back")) || cameras[0];
-//     if (backCamera) {
-//       html5QrCode.start(
-//         { deviceId: { exact: backCamera.id } },
-//         {
-//           fps: 10,
-//           qrbox: 250
-//         },
-//         onScanSuccess
-//       ).catch(err => {
-//         console.error("Camera start error:", err);
-//         Swal.fire("ผิดพลาด", "ไม่สามารถเข้าถึงกล้องได้", "error");
-//       });
-//     }
-//   }).catch(err => {
-//     console.error("Camera fetch error:", err);
-//     Swal.fire("ผิดพลาด", "ไม่พบกล้อง", "error");
-//   });
+    },
+    onScanSuccess
+  ).catch(err => {
+    console.error("Camera start error:", err);
+    Swal.fire("ผิดพลาด", "ไม่สามารถเริ่มกล้องได้", "error");
+  });
+}
 
-//   html5QrcodeScanner = html5QrCode;
-// });
+function stopScanner() {
+  if (html5QrCode && html5QrCode.getState() === Html5QrcodeScannerState.SCANNING) {
+    return html5QrCode.stop();
+  }
+  return Promise.resolve();
+}
 
 $('#scoreModal').on('hidden.bs.modal', function () {
-  if (html5QrcodeScanner) {
-    html5QrcodeScanner.stop().then(() => {
-      html5QrcodeScanner.clear();
-    }).catch(err => {
-      console.warn("Stop camera error", err);
-    });
-  }
+  stopScanner().then(() => {
+    html5QrCode.clear();
+    html5QrCode = null;
+  }).catch(err => {
+    console.warn("Stop camera error", err);
+  });
 });
 
+// ===== ฟังก์ชันเสริม =====
 
-$('#scoreModal').on('hidden.bs.modal', function () {
-  if (html5QrcodeScanner) {
-    html5QrcodeScanner.clear();
-  }
-});
-  
-  
-  
-  function refreshUserScore() {
+function refreshUserScore() {
   fetch(jsonUrl)
     .then(res => res.json())
     .then(data => {
@@ -582,37 +532,45 @@ $('#scoreModal').on('hidden.bs.modal', function () {
       if (userData) {
         let score = parseInt(userData.Score || "0");
         $('#points').text(score);
-
-        const percent = score / 100;
-        const totalLength = 100;
-        const offset = totalLength * (1 - percent);
-        document.getElementById("progressCurve").style.strokeDashoffset = offset;
-
-        let tierText = "ระดับ Silver";
-        let bgClass = "bg-silver";
-        let nextTierScore = 100;
-
-        if (score >= 350) {
-          tierText = "ระดับ Diamond";
-          bgClass = "bg-diamond";
-          nextTierScore = 800;
-        } else if (score >= 100) {
-          tierText = "ระดับ Gold";
-          bgClass = "bg-gold";
-          nextTierScore = 350;
-        }
-
-        $('.d-flex').removeClass("bg-silver bg-gold bg-diamond").addClass(bgClass);
-        $('.text-center.mt-2.mb-4.fw-bold').text(tierText);
-
-        let remaining = nextTierScore - score;
-        if (remaining > 0) {
-          $('p:contains("สะสมอีก")').html(`สะสมอีก <strong>${remaining}</strong> พ้อยท์ ภายใน <strong>31/12/68</strong><br>เพื่อเลื่อนสถานะเป็น <strong>${tierText === "ระดับ Gold" ? "Diamond" : "Supreme"}</strong> ในปี 2568`);
-        } else {
-          $('p:contains("สะสมอีก")').html(`คุณอยู่ในระดับสูงสุดแล้ว 🎉`);
-        }
+        updateProgressBar(score);
       }
     });
+}
+
+function updateProgressBar(score) {
+  const percent = score / 100;
+  const totalLength = 100;
+  const offset = totalLength * (1 - percent);
+  document.getElementById("progressCurve").style.strokeDashoffset = offset;
+
+  let tierText = "ระดับ Silver";
+  let bgClass = "bg-silver";
+  let nextTierScore = 100;
+
+  if (score >= 800) {
+    tierText = "ระดับ Supreme";
+    bgClass = "bg-supreme";
+    nextTierScore = 1000;
+  } else if (score >= 350) {
+    tierText = "ระดับ Diamond";
+    bgClass = "bg-diamond";
+    nextTierScore = 800;
+  } else if (score >= 100) {
+    tierText = "ระดับ Gold";
+    bgClass = "bg-gold";
+    nextTierScore = 350;
+  }
+
+  $('.d-flex').removeClass("bg-silver bg-gold bg-diamond bg-supreme").addClass(bgClass);
+  $('.text-center.mt-2.mb-4.fw-bold').text(tierText);
+
+  let remaining = nextTierScore - score;
+  if (tierText === "ระดับ Supreme") {
+    $('p:contains("สะสมอีก")').html(`คุณอยู่ในระดับสูงสุดแล้ว 🎉`);
+  } else {
+    let nextTierName = tierText === "ระดับ Diamond" ? "Supreme" : "Diamond";
+    $('p:contains("สะสมอีก")').html(`สะสมอีก <strong>${remaining}</strong> พ้อยท์ ภายใน <strong>31/12/68</strong><br>เพื่อเลื่อนสถานะเป็น <strong>${nextTierName}</strong> ในปี 2568`);
+  }
 }
 
   </script>
